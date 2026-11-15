@@ -9,7 +9,7 @@ import {
   LayoutDashboard, Library, BookOpen, ClipboardList, GraduationCap,
   Brain, RotateCcw, BookMarked, AlertCircle, Calendar, Timer,
   BarChart2, Sparkles, Link2, Users, Settings, Shield, ChevronLeft,
-  ChevronRight, Lightbulb, Dumbbell,
+  ChevronRight, Lightbulb, Dumbbell, Zap,
 } from 'lucide-react'
 
 interface NavItem { href: string; label: string; Icon: React.ElementType }
@@ -26,6 +26,7 @@ const examNav: NavItem[] = [
   { href: ROUTE_PATHS.examCS, label: 'GATE CS 2027', Icon: GraduationCap },
   { href: ROUTE_PATHS.examDA, label: 'GATE DA 2027', Icon: Brain },
   { href: ROUTE_PATHS.examGA, label: 'General Aptitude', Icon: Lightbulb },
+  { href: ROUTE_PATHS.sprint, label: 'Sprint', Icon: Zap },
 ]
 
 const personalNav: NavItem[] = [

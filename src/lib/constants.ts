@@ -22,6 +22,7 @@ export const ROUTE_PATHS = {
   practice: '/app/practice/algorithms',
   mockTests: '/app/mock-tests',
   mockTest: (id: string) => `/app/mock-tests/${id}`,
+  sprint: '/app/sprint',
   revision: '/app/revision',
   flashcards: '/app/flashcards',
   mistakes: '/app/mistakes',

@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { use } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import {
-  ArrowLeft, CheckCircle2, XCircle, Loader2, AlertCircle, ChevronRight, Trophy,
+  ArrowLeft, CheckCircle2, XCircle, Loader2, AlertCircle, ChevronRight, Trophy, Clock,
 } from 'lucide-react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
@@ -37,6 +37,11 @@ function parseOptions(raw: string[] | null): PracticeOption[] {
   return raw.map((text, i) => ({ id: String.fromCharCode(65 + i), text }))
 }
 
+function formatClock(total: number) {
+  const s = Math.max(0, Math.floor(total))
+  return `${String(Math.floor(s / 3600)).padStart(2, '0')}:${String(Math.floor((s % 3600) / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`
+}
+
 export default function PracticePage({
   params,
 }: {
@@ -49,6 +54,7 @@ export default function PracticePage({
 
   const paper = searchParams.get('paper') ?? 'CS'
   const topicFilter = searchParams.get('topic') ?? ''
+  const timedMinutes = Number(searchParams.get('timed') ?? '0') || 0
 
   // Available topics extracted from loaded questions for filter dropdown
   const [topicQuery, setTopicQuery] = useState(topicFilter)
@@ -69,6 +75,11 @@ export default function PracticePage({
   const [sessionAttempted, setSessionAttempted] = useState(0)
   const [sessionDone, setSessionDone] = useState(false)
   const startTimeRef = useRef<number>(Date.now())
+
+  // Timed mode (?timed=30): countdown + auto-end
+  const [remaining, setRemaining] = useState(0)
+  const endedRef = useRef(false)
+  const expiresAtRef = useRef<number | null>(null)
 
   // unique topics from loaded batch
   const topics = [...new Set(questions.map(q => q.topic_name).filter(Boolean))]
@@ -97,8 +108,38 @@ export default function PracticePage({
     setSessionAttempted(0)
     setSessionDone(false)
     startTimeRef.current = Date.now()
+    if (timedMinutes > 0) {
+      expiresAtRef.current = Date.now() + timedMinutes * 60000
+      setRemaining(timedMinutes * 60)
+      endedRef.current = false
+    } else {
+      expiresAtRef.current = null
+      setRemaining(0)
+      endedRef.current = false
+    }
     void loadQuestions(subjectParam, paper, topicQuery)
-  }, [subjectParam, paper, topicQuery, loadQuestions])
+  }, [subjectParam, paper, topicQuery, timedMinutes, loadQuestions])
+
+  // Tick the countdown once per second while a timed session is active.
+  useEffect(() => {
+    if (timedMinutes <= 0 || sessionDone) return
+    const id = window.setInterval(() => {
+      if (expiresAtRef.current != null) {
+        setRemaining(Math.max(0, Math.floor((expiresAtRef.current - Date.now()) / 1000)))
+      }
+    }, 1000)
+    return () => window.clearInterval(id)
+  }, [timedMinutes, sessionDone])
+
+  // Auto-end the session when the timer reaches zero.
+  useEffect(() => {
+    if (timedMinutes > 0 && remaining <= 0 && !sessionDone && !endedRef.current) {
+      endedRef.current = true
+      endSession()
+    }
+    // endSession is a stable setter wrapper; listing it would re-run every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [timedMinutes, remaining, sessionDone])
 
   const currentQuestion = questions[currentIdx]
   const options = parseOptions(currentQuestion?.options ?? null)
@@ -166,6 +207,14 @@ export default function PracticePage({
     setSessionAttempted(0)
     setSessionDone(false)
     startTimeRef.current = Date.now()
+    endedRef.current = false
+    if (timedMinutes > 0) {
+      expiresAtRef.current = Date.now() + timedMinutes * 60000
+      setRemaining(timedMinutes * 60)
+    } else {
+      expiresAtRef.current = null
+      setRemaining(0)
+    }
   }
 
   const elapsedSeconds = Math.floor((Date.now() - startTimeRef.current) / 1000)
@@ -247,6 +296,19 @@ export default function PracticePage({
 
   return (
     <div className="mx-auto max-w-2xl space-y-6 py-6">
+      {/* Timed-mode countdown */}
+      {timedMinutes > 0 && !sessionDone && (
+        <div className={cn(
+          'flex items-center justify-center gap-2 rounded-lg border px-4 py-2 text-sm font-semibold',
+          remaining < 300
+            ? 'border-rose-300 bg-rose-50 text-rose-700 dark:border-rose-800 dark:bg-rose-950/40 dark:text-rose-300'
+            : 'border-indigo-200 bg-indigo-50 text-indigo-700 dark:border-indigo-800 dark:bg-indigo-950/40 dark:text-indigo-300',
+        )}>
+          <Clock className="h-4 w-4" />
+          Time remaining: <code className="font-mono font-bold">{formatClock(remaining)}</code>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">

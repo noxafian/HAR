@@ -11,6 +11,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge'
 import { apiRequest } from '@/lib/client/api'
 import { useCountdown } from '@/hooks/use-countdown'
+import { GATE_CS_DATE, GATE_DA_DATE, SPRINT_THRESHOLD_DAYS } from '@/lib/exam-dates'
+import SprintBanner from '@/components/sprint/sprint-banner'
 
 interface AnalyticsSummary {
   pyqAccuracy: number | null
@@ -39,11 +41,8 @@ interface DashboardState {
   discussions: Discussion[] | null
 }
 
-// Official GATE 2027 exam dates — IIT Madras (gate2027.iitm.ac.in)
-// Exams: Feb 6, 7, 13, 14, 20, 21, 2027. Paper-specific slot via admit card.
-// CS: first weekend (Feb 7 forenoon 9:30 AM IST). DA: second weekend (Feb 15 forenoon).
-const GATE_CS_DATE = new Date('2027-02-07T04:00:00Z') // 9:30 AM IST = 04:00 UTC
-const GATE_DA_DATE = new Date('2027-02-15T04:00:00Z') // 9:30 AM IST = 04:00 UTC
+// Official GATE 2027 exam dates are centralized in src/lib/exam-dates.ts.
+// GATE_CS_DATE / GATE_DA_DATE / SPRINT_THRESHOLD_DAYS are imported above.
 
 function localDate(date = new Date()) {
   const year = date.getFullYear()
@@ -299,6 +298,9 @@ export default function DashboardPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Sprint banner — only visible within the last-month window */}
+      <SprintBanner />
 
       {/* Quick stats pills row */}
       <div className="flex flex-wrap gap-3">
