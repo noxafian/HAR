@@ -38,6 +38,7 @@ export const ROUTE_PATHS = {
   adminMembers: '/admin/members',
   adminJoinRequests: '/admin/join-requests',
   adminResources: '/admin/resources',
+  adminVideos: '/admin/videos',
   adminStorage: '/admin/storage',
   adminAudit: '/admin/audit',
   adminQuestions: '/admin/questions',

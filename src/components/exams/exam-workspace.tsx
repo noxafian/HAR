@@ -5,7 +5,8 @@ import Link from 'next/link'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { EmptyState } from '@/components/ui/empty-state'
 import { Badge } from '@/components/ui/badge'
-import { BookOpen, Library, ClipboardList, RotateCcw, BarChart2, LayoutList, Loader2, ExternalLink, CheckCircle2 } from 'lucide-react'
+import { VideosTab } from '@/components/exams/videos-tab'
+import { BookOpen, Library, ClipboardList, RotateCcw, BarChart2, LayoutList, Loader2, ExternalLink, CheckCircle2, MonitorPlay } from 'lucide-react'
 import type { ExamPaper } from '@/types/exam'
 import { apiRequest, jsonBody } from '@/lib/client/api'
 
@@ -105,7 +106,7 @@ export function ExamWorkspace({ paper, title }: ExamWorkspaceProps) {
     <div className="flex flex-wrap items-center gap-3"><div><h1 className="text-2xl font-semibold text-slate-900 dark:text-slate-100">{title}</h1><p className="mt-1 text-sm text-slate-500">Subjects are loaded from the current database syllabus version. Topic details appear only when verified topic records have been imported.</p></div><Badge variant={badge.variant}>{badge.label}</Badge></div>
     {error && <div role="alert" className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700 dark:border-rose-900 dark:bg-rose-950/30 dark:text-rose-300">{error}</div>}
     <Tabs defaultValue="subjects">
-      <TabsList className="flex-wrap"><TabsTrigger value="subjects"><LayoutList className="mr-1.5 h-3.5 w-3.5"/>Subjects</TabsTrigger><TabsTrigger value="resources"><Library className="mr-1.5 h-3.5 w-3.5"/>Resources</TabsTrigger><TabsTrigger value="pyq"><BookOpen className="mr-1.5 h-3.5 w-3.5"/>PYQs</TabsTrigger><TabsTrigger value="practice"><ClipboardList className="mr-1.5 h-3.5 w-3.5"/>Practice</TabsTrigger><TabsTrigger value="revision"><RotateCcw className="mr-1.5 h-3.5 w-3.5"/>Revision</TabsTrigger><TabsTrigger value="analytics"><BarChart2 className="mr-1.5 h-3.5 w-3.5"/>Analytics</TabsTrigger></TabsList>
+      <TabsList className="flex-wrap"><TabsTrigger value="subjects"><LayoutList className="mr-1.5 h-3.5 w-3.5"/>Subjects</TabsTrigger><TabsTrigger value="resources"><Library className="mr-1.5 h-3.5 w-3.5"/>Resources</TabsTrigger><TabsTrigger value="videos"><MonitorPlay className="mr-1.5 h-3.5 w-3.5"/>Videos</TabsTrigger><TabsTrigger value="pyq"><BookOpen className="mr-1.5 h-3.5 w-3.5"/>PYQs</TabsTrigger><TabsTrigger value="practice"><ClipboardList className="mr-1.5 h-3.5 w-3.5"/>Practice</TabsTrigger><TabsTrigger value="revision"><RotateCcw className="mr-1.5 h-3.5 w-3.5"/>Revision</TabsTrigger><TabsTrigger value="analytics"><BarChart2 className="mr-1.5 h-3.5 w-3.5"/>Analytics</TabsTrigger></TabsList>
       <TabsContent value="subjects">
         {loading ? <div className="flex items-center justify-center gap-2 py-12 text-sm text-slate-500"><Loader2 className="h-4 w-4 animate-spin"/>Loading database syllabus…</div> : !syllabus?.sections.length ? <EmptyState icon={LayoutList} title="No subject catalogue is configured." description="The database has no current syllabus subject links for this paper yet."/> : <div className="space-y-3">
           <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-300">{syllabus.year ? `Syllabus version ${syllabus.year}` : 'No current version'} is configured. {syllabus.topicHierarchyAvailable ? 'Topic records are available below.' : 'The subject catalogue is present, but verified official topic-level content has not yet been imported. No syllabus topics or weightage are being invented.'}</div>
@@ -116,6 +117,7 @@ export function ExamWorkspace({ paper, title }: ExamWorkspaceProps) {
         </div>}
       </TabsContent>
       <TabsContent value="resources"><p className="mb-3 text-sm text-slate-500">Resources are shared across workspaces and can be filtered by paper.</p><Link href="/app/library" className="text-sm font-medium text-indigo-600 hover:underline dark:text-indigo-400">Open Study Library →</Link></TabsContent>
+      <TabsContent value="videos"><VideosTab paper={paper}/></TabsContent>
       <TabsContent value="pyq"><p className="mb-3 text-sm text-slate-500">Verified question-bank entries are searchable by paper and section.</p><Link href={`/app/pyq?paper=${paper === 'GA' ? 'GA' : paper}`} className="text-sm font-medium text-indigo-600 hover:underline dark:text-indigo-400">Open PYQ bank →</Link></TabsContent>
       <TabsContent value="practice"><p className="mb-3 text-sm text-slate-500">Published mock tests are available from the exam engine.</p><Link href="/app/mock-tests" className="text-sm font-medium text-indigo-600 hover:underline dark:text-indigo-400">Open mock tests →</Link></TabsContent>
       <TabsContent value="revision"><p className="mb-3 text-sm text-slate-500">Your own scheduled revision items and review history are stored in the database.</p><Link href="/app/revision" className="text-sm font-medium text-indigo-600 hover:underline dark:text-indigo-400">Open Revision Centre →</Link></TabsContent>

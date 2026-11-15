@@ -4,13 +4,14 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/cn'
 import { ROUTE_PATHS } from '@/lib/constants'
-import { LayoutDashboard, Users, UserPlus, FileText, HardDrive, ScrollText, ArrowLeft, BookOpen, FlaskConical, Megaphone, MessageSquare, BarChart2 } from 'lucide-react'
+import { LayoutDashboard, Users, UserPlus, FileText, HardDrive, ScrollText, ArrowLeft, BookOpen, FlaskConical, Megaphone, MessageSquare, BarChart2, MonitorPlay } from 'lucide-react'
 
 const adminNav = [
   { href: ROUTE_PATHS.admin, label: 'Overview', Icon: LayoutDashboard },
   { href: ROUTE_PATHS.adminMembers, label: 'Members', Icon: Users },
   { href: ROUTE_PATHS.adminJoinRequests, label: 'Join Requests', Icon: UserPlus },
   { href: ROUTE_PATHS.adminResources, label: 'Resources', Icon: FileText },
+  { href: ROUTE_PATHS.adminVideos, label: 'Videos', Icon: MonitorPlay },
   { href: ROUTE_PATHS.adminStorage, label: 'Storage', Icon: HardDrive },
   { href: ROUTE_PATHS.adminAudit, label: 'Audit Log', Icon: ScrollText },
   { href: ROUTE_PATHS.adminQuestions, label: 'Questions', Icon: BookOpen },
