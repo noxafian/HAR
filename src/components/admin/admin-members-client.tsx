@@ -1,0 +1,26 @@
+'use client'
+
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { apiRequest, jsonBody } from '@/lib/client/api'
+import { Card } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Select } from '@/components/ui/select'
+import { EmptyState } from '@/components/ui/empty-state'
+import { Crown, User, Users, AlertCircle, RefreshCw } from 'lucide-react'
+
+type Member = { user_id: string; email: string; display_name: string; exam_papers: string[]; role: 'owner'|'member'; status: 'pending'|'approved'|'rejected'|'suspended'|'removed'; joined_at: string|null; created_at: string }
+type PageData = { items: Member[]; total: number; page: number; limit: number; hasMore: boolean }
+export function AdminMembersClient({ currentUserId }: { currentUserId: string }) {
+  const [data,setData] = useState<PageData|null>(null); const [status,setStatus] = useState(''); const [search,setSearch] = useState(''); const [busy,setBusy] = useState(''); const [error,setError] = useState(''); const [notice,setNotice] = useState('')
+  const load = useCallback(async () => { setError(''); try { const qs = new URLSearchParams({page:'1',limit:'200'}); if(status) qs.set('status',status); const result=await apiRequest<PageData>(`/api/v1/membership/members?${qs}`); setData(result) } catch(e) { setError(e instanceof Error?e.message:'Members could not be loaded') } },[status])
+  useEffect(()=>{void load()},[load])
+  const members = useMemo(()=> (data?.items??[]).filter(m=>`${m.display_name} ${m.email}`.toLowerCase().includes(search.toLowerCase())),[data,search])
+  async function update(member: Member, payload: {role?:'member';action?:'suspend'|'reactivate'|'remove'}) { setBusy(member.user_id);setError('');setNotice('');try{await apiRequest(`/api/v1/membership/members/${member.user_id}`,{method:'PATCH',body:jsonBody(payload)});setNotice(`${member.display_name} updated.`);await load()}catch(e){setError(e instanceof Error?e.message:'Member update failed')}finally{setBusy('')} }
+  return <div className="space-y-6"><div className="flex flex-wrap items-end justify-between gap-3"><div><h1 className="text-3xl font-bold">Members</h1><p className="mt-1 text-muted-foreground">Manage current membership, roles and access status.</p></div><Button variant="outline" onClick={()=>void load()}><RefreshCw className="mr-2 h-4 w-4"/>Refresh</Button></div>
+    <Card className="p-4"><div className="grid gap-3 sm:grid-cols-[1fr_220px]"><Input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search name or email"/><Select value={status} onChange={e=>setStatus(e.target.value)}><option value="">All statuses</option>{['pending','approved','rejected','suspended','removed'].map(s=><option key={s} value={s}>{s}</option>)}</Select></div><p className="mt-2 text-xs text-muted-foreground">{data?.total ?? '—'} matching membership records. Showing up to 200 records per filter.</p></Card>
+    {error&&<p role="alert" className="text-sm text-destructive"><AlertCircle className="mr-1 inline h-4 w-4"/>{error}</p>}{notice&&<p role="status" className="text-sm text-green-700">{notice}</p>}
+    <Card className="p-5">{!data&&!error?<p className="text-sm text-muted-foreground">Loading members…</p>:members.length===0?<EmptyState icon={Users} title="No matching members" description="Members will appear here after account registration and membership provisioning."/>:<div className="space-y-3">{members.map(m=><div key={m.user_id} className="flex flex-col gap-3 rounded-lg border p-4 lg:flex-row lg:items-center lg:justify-between"><div className="flex items-start gap-3"><div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-muted">{m.role==='owner'?<Crown className="h-5 w-5"/>:<User className="h-5 w-5"/>}</div><div className="min-w-0"><p className="font-medium">{m.display_name} {m.user_id===currentUserId&&<span className="text-xs text-muted-foreground">(you)</span>}</p><p className="truncate text-sm text-muted-foreground">{m.email}</p><p className="mt-1 text-xs text-muted-foreground">Papers: {(m.exam_papers??[]).join(', ')||'Not selected'} · Joined {m.joined_at?new Date(m.joined_at).toLocaleDateString('en-IN'):'Not yet approved'}</p></div></div><div className="flex flex-wrap items-center gap-2"><Badge variant={m.status==='approved'?'default':m.status==='suspended'||m.status==='removed'?'destructive':'outline'}>{m.status}</Badge><Badge variant="secondary">{m.role}</Badge>{m.role!=='owner'&&m.user_id!==currentUserId&&<><Select aria-label={`Change role for ${m.display_name}`} className="h-9 w-36" value={m.role} disabled={busy===m.user_id} onChange={e=>void update(m,{role:e.target.value as 'member'})}><option value="member">Member</option></Select>{m.status==='approved'?<Button size="sm" variant="outline" disabled={busy===m.user_id} onClick={()=>void update(m,{action:'suspend'})}>Suspend</Button>:<Button size="sm" variant="outline" disabled={busy===m.user_id} onClick={()=>void update(m,{action:'reactivate'})}>Reactivate</Button>}{m.status!=='removed'&&<Button size="sm" variant="destructive" disabled={busy===m.user_id} onClick={()=>void update(m,{action:'remove'})}>Remove</Button>}</>}</div></div>)}</div>}</Card>
+  </div>
+}
