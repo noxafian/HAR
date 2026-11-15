@@ -1,9 +1,10 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import {
   BookOpen, Search, CheckCircle2, ChevronDown, ChevronUp,
-  Loader2, SlidersHorizontal, AlertCircle, RefreshCw,
+  Loader2, SlidersHorizontal, AlertCircle, RefreshCw, Sparkles,
 } from 'lucide-react'
 import { EmptyState } from '@/components/ui/empty-state'
 import { Select } from '@/components/ui/select'
@@ -49,6 +50,7 @@ const CURRENT_YEAR = new Date().getFullYear()
 const YEARS = Array.from({ length: CURRENT_YEAR - 2009 }, (_, i) => CURRENT_YEAR - i)
 
 export default function PYQPage() {
+  const router = useRouter()
   const [search, setSearch]               = useState('')
   const [paper, setPaper]                 = useState('')
   const [type, setType]                   = useState('')
@@ -118,6 +120,20 @@ export default function PYQPage() {
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not load answer and solution')
     }
+  }
+
+  function handleAskAI(q: QuestionItem) {
+    const prompt = [
+      'Explain this GATE question step by step:',
+      '',
+      q.prompt,
+      '',
+      q.options ? `Options: ${q.options.join(' | ')}` : '',
+      '',
+      'Correct Answer: [not revealed until after solving]',
+    ].filter((line, i, arr) => !(line === '' && arr[i - 1] === '')).join('\n').trim()
+    sessionStorage.setItem('ai_prefill', prompt)
+    router.push('/app/ai')
   }
 
   const total = data?.total ?? 0
@@ -333,6 +349,17 @@ export default function PYQPage() {
                         <strong>Solution: </strong>{sol.solution}
                       </p>
                     )}
+                    <div className="mt-3 border-t border-indigo-100 pt-3 dark:border-indigo-900">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 gap-1.5 text-xs text-indigo-700 hover:bg-indigo-100 dark:text-indigo-300 dark:hover:bg-indigo-900/30"
+                        onClick={() => handleAskAI(q)}
+                      >
+                        <Sparkles className="h-3.5 w-3.5" />
+                        Ask AI to explain
+                      </Button>
+                    </div>
                   </div>
                 )}
               </article>

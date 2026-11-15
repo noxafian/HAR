@@ -39,6 +39,12 @@ export default function AIAssistantPage() {
       setConnections(result); setConnectionId(usable[0]?.id ?? '')
     }).catch(e => { if (active) setError(e instanceof Error ? e.message : 'AI provider connections could not be loaded') })
       .finally(() => { if (active) setLoadingConnections(false) })
+    // Check sessionStorage for a pre-filled prompt from PYQ page
+    const prefill = typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('ai_prefill') : null
+    if (prefill) {
+      setInputMessage(prefill)
+      sessionStorage.removeItem('ai_prefill')
+    }
     return () => { active = false }
   }, [])
 

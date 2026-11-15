@@ -100,6 +100,90 @@ function SectionHeader({ icon, title, description }: { icon: string; title: stri
   )
 }
 
+function TodayGoalCard({ analytics, loading }: { analytics: AnalyticsSummary | null; loading: boolean }) {
+  const DAILY_GOAL_MINS = 120
+  // No per-day focus API exists; use weekly average as approximation
+  const todayEstimate = analytics ? Math.round(analytics.weeklyStudyMinutes / 7) : 0
+  const progress = Math.min(100, Math.round((todayEstimate / DAILY_GOAL_MINS) * 100))
+  const streak = analytics?.studyStreakDays ?? 0
+  const hasActivity = (analytics?.weeklyStudyMinutes ?? 0) > 0
+
+  // Build last-7-day heatmap labels (Mon–Sun relative to today)
+  const today = new Date()
+  const days = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(today)
+    d.setDate(d.getDate() - 6 + i)
+    return { label: d.toLocaleDateString('en-US', { weekday: 'short' }).slice(0, 2), isToday: i === 6 }
+  })
+
+  return (
+    <Card className="w-full border-indigo-200 bg-gradient-to-br from-indigo-50 to-white dark:border-indigo-800 dark:from-indigo-950/40 dark:to-slate-900">
+      <CardHeader className="pb-2">
+        <CardTitle className="flex items-center gap-2 text-sm font-semibold text-indigo-800 dark:text-indigo-200">
+          <Target className="h-4 w-4 text-indigo-500" />
+          Today's Study Goal
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:gap-8">
+          {/* Progress section */}
+          <div className="flex-1 space-y-2">
+            <div className="flex items-center justify-between text-xs text-slate-600 dark:text-slate-400">
+              <span>
+                {loading ? 'Calculating…' : `~${todayEstimate} / ${DAILY_GOAL_MINS} min studied today`}
+              </span>
+              <span className="font-semibold text-indigo-700 dark:text-indigo-300">{loading ? '…' : `${progress}%`}</span>
+            </div>
+            <div className="h-3 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
+              <div
+                className="h-full rounded-full bg-indigo-500 transition-all duration-500"
+                style={{ width: `${loading ? 0 : progress}%` }}
+              />
+            </div>
+            <p className="text-[10px] text-slate-400 italic">~daily estimate from weekly average · use Focus Timer for exact tracking</p>
+          </div>
+
+          {/* Streak */}
+          <div className="flex items-center gap-2">
+            <span className="text-2xl">🔥</span>
+            <div>
+              <p className="text-xl font-bold text-slate-900 dark:text-slate-100">
+                {loading ? '—' : `${streak}`}
+              </p>
+              <p className="text-xs text-slate-500">day streak</p>
+            </div>
+          </div>
+
+          {/* 7-day heatmap */}
+          <div className="flex flex-col gap-1">
+            <p className="text-[10px] font-medium uppercase tracking-wide text-slate-500">Last 7 days</p>
+            <div className="flex gap-1">
+              {days.map((day, i) => (
+                <div key={i} className="flex flex-col items-center gap-0.5">
+                  <div
+                    className={`h-6 w-6 rounded-sm ${
+                      day.isToday && hasActivity
+                        ? 'bg-indigo-500'
+                        : day.isToday
+                        ? 'bg-indigo-200 dark:bg-indigo-800'
+                        : hasActivity && i >= 7 - Math.min(streak, 7)
+                        ? 'bg-indigo-500'
+                        : 'bg-slate-200 dark:bg-slate-700'
+                    }`}
+                    title={day.label}
+                  />
+                  <span className="text-[9px] text-slate-400">{day.label}</span>
+                </div>
+              ))}
+            </div>
+            <p className="text-[10px] text-slate-400 italic">Daily breakdown needs Focus Timer</p>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
 function HeroCountdownBlock({ label, date }: { label: string; date: Date | null }) {
   const result = useCountdown(date)
   return (
@@ -222,6 +306,9 @@ export default function DashboardPage() {
         <StatPill icon={Flame} label="Streak" value={`${data.analytics?.studyStreakDays ?? 0} days`} loading={loading} />
         <StatPill icon={Target} label="PYQ accuracy" value={data.analytics?.pyqAccuracy == null ? '—' : `${data.analytics.pyqAccuracy.toFixed(1)}%`} loading={loading} />
       </div>
+
+      {/* Today's Study Goal card */}
+      <TodayGoalCard analytics={data.analytics} loading={loading} />
 
       {/* Section: Today */}
       <SectionHeader icon="📅" title="Today" description="Your tasks and revision due today" />
