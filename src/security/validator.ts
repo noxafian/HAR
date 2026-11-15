@@ -3,10 +3,10 @@
  * File-type validation and input sanitization utilities
  */
 
-export type AllowedFileExtension = 'pdf' | 'png' | 'jpg' | 'jpeg' | 'docx' | 'pptx' | 'txt'
+export type AllowedFileExtension = 'pdf' | 'png' | 'jpg' | 'jpeg' | 'docx' | 'pptx' | 'txt' | 'json'
 
 export const ALLOWED_EXTENSIONS: AllowedFileExtension[] = [
-  'pdf', 'png', 'jpg', 'jpeg', 'docx', 'pptx', 'txt',
+  'pdf', 'png', 'jpg', 'jpeg', 'docx', 'pptx', 'txt', 'json',
 ]
 
 export const EXTENSION_TO_MIME: Record<AllowedFileExtension, string> = {
@@ -17,6 +17,7 @@ export const EXTENSION_TO_MIME: Record<AllowedFileExtension, string> = {
   docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
   txt: 'text/plain',
+  json: 'application/json',
 }
 
 /**

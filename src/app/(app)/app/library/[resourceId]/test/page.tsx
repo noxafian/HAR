@@ -5,9 +5,10 @@ import { useParams, useRouter } from 'next/navigation'
 import { ChevronRight, CheckCircle2, XCircle, RotateCcw, Loader2, AlertTriangle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { apiRequest } from '@/lib/client/api'
+import { apiRequest, jsonBody } from '@/lib/client/api'
 
 interface MCQQuestion {
+  id?: string
   question: string
   options: string[] | { A: string; B: string; C: string; D: string }
   correct: 'A' | 'B' | 'C' | 'D' | number
@@ -92,6 +93,25 @@ export default function LibraryTestPage() {
     const newAnswered = [...answered]; newAnswered[current] = true; setAnswered(newAnswered)
     const newUserAnswers = [...userAnswers]; newUserAnswers[current] = selected; setUserAnswers(newUserAnswers)
     setShowExplanation(true)
+
+    // Auto-log incorrect answers to mistake notebook (only when question has a UUID id)
+    const isWrong = selected !== getCorrectIndex(q)
+    if (isWrong && q.id && /^[0-9a-f-]{36}$/i.test(q.id)) {
+      const correctIdx = getCorrectIndex(q)
+      const opts = getOptions(q)
+      const yourAnswerText = opts[selected] ?? OPTION_KEYS[selected] ?? String(selected)
+      const correctAnswerText = opts[correctIdx] ?? OPTION_KEYS[correctIdx] ?? String(correctIdx)
+      apiRequest('/api/v1/study/mistakes/auto', {
+        method: 'POST',
+        body: jsonBody({
+          question_id: q.id,
+          your_answer: yourAnswerText,
+          correct_answer: correctAnswerText,
+          source_type: 'topic_quiz',
+          source_ref: resourceId,
+        }),
+      }).catch(() => { /* silent — never breaks the quiz */ })
+    }
   }
 
   function nextQuestion() {

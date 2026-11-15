@@ -67,6 +67,15 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // Validate JSON files contain parseable JSON
+    if (typeCheck.extension === 'json') {
+      try {
+        JSON.parse(buffer.toString('utf-8'))
+      } catch {
+        return NextResponse.json(createErrorResponse(ErrorCodes.UNSUPPORTED_FILE_TYPE.id, 'JSON file must contain valid JSON'), { status: 400 })
+      }
+    }
+
     // Compute file hash
     const contentHash = createHash('sha256').update(buffer).digest('hex')
 
