@@ -19,6 +19,7 @@ export const ROUTE_PATHS = {
   examDA: '/app/exams/da-2027',
   examGA: '/app/exams/general-aptitude',
   pyq: '/app/pyq',
+  practice: '/app/practice/algorithms',
   mockTests: '/app/mock-tests',
   mockTest: (id: string) => `/app/mock-tests/${id}`,
   revision: '/app/revision',

@@ -9,7 +9,7 @@ import {
   LayoutDashboard, Library, BookOpen, ClipboardList, GraduationCap,
   Brain, RotateCcw, BookMarked, AlertCircle, Calendar, Timer,
   BarChart2, Sparkles, Link2, Users, Settings, Shield, ChevronLeft,
-  ChevronRight, Lightbulb,
+  ChevronRight, Lightbulb, Dumbbell,
 } from 'lucide-react'
 
 interface NavItem { href: string; label: string; Icon: React.ElementType }
@@ -18,6 +18,7 @@ const mainNav: NavItem[] = [
   { href: ROUTE_PATHS.app, label: 'Dashboard', Icon: LayoutDashboard },
   { href: ROUTE_PATHS.library, label: 'Study Library', Icon: Library },
   { href: ROUTE_PATHS.pyq, label: 'PYQ Bank', Icon: BookOpen },
+  { href: ROUTE_PATHS.practice, label: 'Practice', Icon: Dumbbell },
   { href: ROUTE_PATHS.mockTests, label: 'Mock Tests', Icon: ClipboardList },
 ]
 

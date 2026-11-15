@@ -2,8 +2,10 @@
 
 import { useEffect, use, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { cn } from '@/lib/cn'
 import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog'
 import { Alert } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
@@ -204,7 +206,155 @@ export default function MockTestPage({ params }: { params: Promise<{ testId: str
   if (loading) return <div className="flex min-h-[50vh] items-center justify-center gap-2 text-sm text-slate-500"><Loader2 className="h-4 w-4 animate-spin"/>Starting secure exam session…</div>
   if (error && !session) return <div className="mx-auto max-w-2xl py-10"><Alert variant="warning" title="Exam could not be started">{error}</Alert><Button className="mt-4" onClick={() => router.push('/app/mock-tests')}>Back to Test Centre</Button></div>
 
-  if (score && session) return <div className="mx-auto max-w-3xl space-y-6 py-6"><div><Badge variant="success">Submitted</Badge><h1 className="mt-2 text-2xl font-semibold text-slate-900 dark:text-slate-100">Examination Results</h1><p className="mt-1 text-sm text-slate-500">{session.title} · GATE {session.paper}</p></div><div className="grid gap-3 sm:grid-cols-4"><div className="rounded-xl border p-4"><p className="text-xs text-slate-500">Score</p><p className="text-2xl font-bold">{Number(score.totalMarks).toFixed(2)} / {Number(score.maxPossibleMarks).toFixed(2)}</p></div><div className="rounded-xl border p-4"><p className="text-xs text-slate-500">Accuracy</p><p className="text-2xl font-bold">{Number(score.accuracy).toFixed(2)}%</p></div><div className="rounded-xl border p-4"><p className="text-xs text-slate-500">Correct</p><p className="text-2xl font-bold text-emerald-600">{score.correct}</p></div><div className="rounded-xl border p-4"><p className="text-xs text-slate-500">Incorrect / Unanswered</p><p className="text-2xl font-bold">{score.incorrect} / {score.unanswered}</p></div></div><div className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-700 dark:bg-slate-900"><h2 className="font-semibold">Question summary</h2><div className="mt-3 space-y-2">{(score.questionResults ?? []).map((item, index) => <div key={item.questionId} className="flex items-center justify-between border-b border-slate-100 py-2 text-sm last:border-0 dark:border-slate-800"><span>Question {index + 1}</span><span className={item.outcome === 'correct' ? 'text-emerald-600' : item.outcome === 'incorrect' ? 'text-rose-600' : 'text-slate-500'}>{item.outcome} · {Number(item.marksAwarded).toFixed(2)} / {Number(item.maxMarks).toFixed(2)}</span></div>)}</div></div><div className="flex gap-3"><Button onClick={() => router.push('/app/mock-tests')}>Back to Test Centre</Button><Button variant="outline" onClick={() => router.push('/app/analytics')}>View Analytics</Button></div></div>
+  if (score && session) {
+    // Build mark-band breakdown from session questions and score results
+    const resultMap = new Map((score.questionResults ?? []).map(r => [r.questionId, r]))
+    const oneMarkQs = session.questions.filter(q => q.marks === 1)
+    const twoMarkQs = session.questions.filter(q => q.marks === 2)
+    const oneMarkCorrect = oneMarkQs.filter(q => resultMap.get(q.id)?.outcome === 'correct').length
+    const twoMarkCorrect = twoMarkQs.filter(q => resultMap.get(q.id)?.outcome === 'correct').length
+    const wrongResults = (score.questionResults ?? []).filter(r => r.outcome === 'incorrect')
+    const scoreRatio = score.maxPossibleMarks > 0 ? score.totalMarks / score.maxPossibleMarks : 0
+    const GATE_CUTOFF = 25
+
+    return (
+      <div className="mx-auto max-w-3xl space-y-6 py-6">
+        <div>
+          <Badge variant="success">Submitted</Badge>
+          <h1 className="mt-2 text-2xl font-semibold text-slate-900 dark:text-slate-100">Examination Results</h1>
+          <p className="mt-1 text-sm text-slate-500">{session.title} · GATE {session.paper}</p>
+        </div>
+
+        {/* Score summary */}
+        <div className="grid gap-3 sm:grid-cols-4">
+          <div className="rounded-xl border p-4"><p className="text-xs text-slate-500">Score</p><p className="text-2xl font-bold">{Number(score.totalMarks).toFixed(2)} / {Number(score.maxPossibleMarks).toFixed(2)}</p></div>
+          <div className="rounded-xl border p-4"><p className="text-xs text-slate-500">Accuracy</p><p className="text-2xl font-bold">{Number(score.accuracy).toFixed(2)}%</p></div>
+          <div className="rounded-xl border p-4"><p className="text-xs text-slate-500">Correct</p><p className="text-2xl font-bold text-emerald-600">{score.correct}</p></div>
+          <div className="rounded-xl border p-4"><p className="text-xs text-slate-500">Incorrect / Unanswered</p><p className="text-2xl font-bold">{score.incorrect} / {score.unanswered}</p></div>
+        </div>
+
+        {/* Mark-band breakdown */}
+        <Card>
+          <CardHeader><CardTitle className="text-base">Mark-band breakdown</CardTitle><CardDescription>How you performed on 1-mark vs 2-mark questions.</CardDescription></CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="rounded-lg border p-4">
+                <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">1-mark questions</p>
+                <p className="mt-1 text-2xl font-bold">{oneMarkCorrect} <span className="text-sm font-normal text-slate-500">/ {oneMarkQs.length} correct</span></p>
+                <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
+                  <div className="h-full rounded-full bg-indigo-500 transition-all" style={{ width: `${oneMarkQs.length > 0 ? (oneMarkCorrect / oneMarkQs.length) * 100 : 0}%` }} />
+                </div>
+                <Link href="/app/practice/algorithms" className="mt-2 block text-xs text-indigo-600 hover:underline dark:text-indigo-400">
+                  Practice 1-mark questions →
+                </Link>
+              </div>
+              <div className="rounded-lg border p-4">
+                <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">2-mark questions</p>
+                <p className="mt-1 text-2xl font-bold">{twoMarkCorrect} <span className="text-sm font-normal text-slate-500">/ {twoMarkQs.length} correct</span></p>
+                <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
+                  <div className="h-full rounded-full bg-indigo-500 transition-all" style={{ width: `${twoMarkQs.length > 0 ? (twoMarkCorrect / twoMarkQs.length) * 100 : 0}%` }} />
+                </div>
+                <Link href="/app/practice/algorithms" className="mt-2 block text-xs text-indigo-600 hover:underline dark:text-indigo-400">
+                  Practice 2-mark questions →
+                </Link>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* GATE cutoff comparison */}
+        <Card>
+          <CardHeader><CardTitle className="text-base">GATE qualifying cutoff comparison</CardTitle></CardHeader>
+          <CardContent className="space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="text-sm text-slate-500">Your score</p>
+                <p className="text-xl font-bold">{Number(score.totalMarks).toFixed(2)} / {Number(score.maxPossibleMarks).toFixed(2)}</p>
+              </div>
+              <div>
+                <p className="text-sm text-slate-500">Estimated qualifying cutoff</p>
+                <p className="text-xl font-bold">{GATE_CUTOFF} marks <span className="text-xs font-normal text-slate-400">(general category)</span></p>
+              </div>
+              <Badge
+                variant={
+                  score.totalMarks >= GATE_CUTOFF * 1.3 ? 'success'
+                  : score.totalMarks >= GATE_CUTOFF ? 'warning'
+                  : 'destructive'
+                }
+              >
+                {score.totalMarks >= GATE_CUTOFF * 1.3
+                  ? '✓ Well above cutoff'
+                  : score.totalMarks >= GATE_CUTOFF
+                    ? '⚠ Borderline — above cutoff'
+                    : '✗ Below cutoff — needs improvement'}
+              </Badge>
+            </div>
+            <div className="h-3 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
+              <div
+                className={cn('h-full rounded-full transition-all', scoreRatio >= 0.65 ? 'bg-emerald-500' : scoreRatio >= 0.4 ? 'bg-yellow-500' : 'bg-rose-500')}
+                style={{ width: `${Math.min(100, scoreRatio * 100)}%` }}
+              />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Wrong answers list */}
+        {wrongResults.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Incorrect answers ({wrongResults.length})</CardTitle>
+              <CardDescription>Review these questions and practice similar ones in the PYQ bank.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {wrongResults.map((r, idx) => {
+                const q = session.questions.find(sq => sq.id === r.questionId)
+                return (
+                  <div key={r.questionId} className="rounded-lg border border-rose-100 bg-rose-50/50 p-4 dark:border-rose-900 dark:bg-rose-950/10">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-semibold text-rose-700 dark:text-rose-400 mb-1">Question {idx + 1} · {r.maxMarks}M</p>
+                        <p className="text-sm text-slate-800 dark:text-slate-200 line-clamp-3">
+                          {q ? (q.text.length > 200 ? q.text.slice(0, 200) + '…' : q.text) : `Question ID: ${r.questionId}`}
+                        </p>
+                      </div>
+                      <Badge variant="destructive" className="shrink-0">incorrect</Badge>
+                    </div>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <Link href="/app/pyq" className="text-xs text-indigo-600 hover:underline dark:text-indigo-400">
+                        View in PYQ bank →
+                      </Link>
+                    </div>
+                  </div>
+                )
+              })}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Full question summary */}
+        <Card>
+          <CardHeader><CardTitle className="text-base">Full question summary</CardTitle></CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {(score.questionResults ?? []).map((item, index) => (
+                <div key={item.questionId} className="flex items-center justify-between border-b border-slate-100 py-2 text-sm last:border-0 dark:border-slate-800">
+                  <span>Question {index + 1}</span>
+                  <span className={item.outcome === 'correct' ? 'text-emerald-600' : item.outcome === 'incorrect' ? 'text-rose-600' : 'text-slate-500'}>
+                    {item.outcome} · {Number(item.marksAwarded).toFixed(2)} / {Number(item.maxMarks).toFixed(2)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        <div className="flex gap-3">
+          <Button onClick={() => router.push('/app/mock-tests')}>Back to Test Centre</Button>
+          <Button variant="outline" onClick={() => router.push('/app/analytics')}>View Analytics</Button>
+        </div>
+      </div>
+    )
+  }
 
   if (!session || !currentQuestion) return <div className="p-10 text-center text-sm text-slate-500">This mock test contains no available questions.</div>
   const answeredCount = session.questions.filter(q => getStatus(q.id) === 'answered' || getStatus(q.id) === 'answered-and-marked').length

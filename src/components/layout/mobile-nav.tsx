@@ -12,6 +12,7 @@ const allLinks = [
   { href: ROUTE_PATHS.app, label: 'Dashboard' },
   { href: ROUTE_PATHS.library, label: 'Library' },
   { href: ROUTE_PATHS.pyq, label: 'PYQ Bank' },
+  { href: ROUTE_PATHS.practice, label: 'Practice' },
   { href: ROUTE_PATHS.mockTests, label: 'Mock Tests' },
   { href: ROUTE_PATHS.examCS, label: 'GATE CS 2027' },
   { href: ROUTE_PATHS.examDA, label: 'GATE DA 2027' },
