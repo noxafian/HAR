@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { apiRequest } from '@/lib/client/api'
 import { CS_SUBJECTS, DA_SUBJECTS } from '@/lib/constants'
+import type { ResourceCategory } from '@/schemas/library.schema'
 
 interface Resource {
   id: string
@@ -22,6 +23,7 @@ interface Resource {
   status: string
   download_count: number
   created_at: string
+  category: string | null
   subjects?: { name: string } | { name: string }[] | null
   topics?: { name: string } | { name: string }[] | null
 }
@@ -51,18 +53,31 @@ function paperLabel(paper: string | null): string {
   return 'General'
 }
 
+const CATEGORY_LABELS: Record<string, string> = {
+  'notes': '📝 NOTES',
+  'year-wise-paper': '📅 YEAR-WISE PAPERS',
+  'subject-wise-paper': '📚 SUBJECT-WISE PAPERS',
+  'topic-wise-paper': '🏷️ TOPIC-WISE PAPERS',
+}
+
+function categoryLabel(cat: string | null): string {
+  return CATEGORY_LABELS[cat ?? ''] ?? '📄 OTHER'
+}
+
 export default function LibraryPage() {
   const router = useRouter()
   const [resources, setResources] = useState<Resource[]>([])
   const [search, setSearch] = useState('')
   const [type, setType] = useState('')
   const [paper, setPaper] = useState('')
+  const [category, setCategory] = useState('')
   const [uploadOpen, setUploadOpen] = useState(false)
   const [file, setFile] = useState<File | null>(null)
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [subject, setSubject] = useState('')
   const [uploadPaper, setUploadPaper] = useState<'CS' | 'DA' | 'GA'>('CS')
+  const [uploadCategory, setUploadCategory] = useState<ResourceCategory>('notes')
   const [topic, setTopic] = useState('')
   const [loading, setLoading] = useState(true)
   const [uploading, setUploading] = useState(false)
@@ -70,7 +85,7 @@ export default function LibraryPage() {
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
 
-  async function loadResources(filters = { search, type, paper }) {
+  async function loadResources(filters = { search, type, paper, category }) {
     setLoading(true)
     setError('')
     try {
@@ -78,6 +93,7 @@ export default function LibraryPage() {
       if (filters.search.trim()) query.set('search', filters.search.trim())
       if (filters.type) query.set('type', filters.type)
       if (filters.paper) query.set('paper', filters.paper)
+      if (filters.category) query.set('category', filters.category)
       const result = await apiRequest<{ items: Resource[] }>(`/api/v1/library?${query.toString()}`)
       setResources(result.items)
     } catch (e) {
@@ -102,12 +118,13 @@ export default function LibraryPage() {
       if (subject) formData.append('subject', subject)
       if (topic.trim()) formData.append('topic', topic.trim())
       formData.append('paper', uploadPaper)
+      formData.append('category', uploadCategory)
       const result = await apiRequest<{ resourceId: string; status: string; duplicate?: boolean }>(
         '/api/v1/library/upload', { method: 'POST', body: formData }
       )
       setMessage(result.duplicate ? 'This file already exists in the library.' : 'File uploaded — available to all members.')
       setUploadOpen(false)
-      setFile(null); setTitle(''); setDescription(''); setSubject(''); setTopic(''); setUploadPaper('CS')
+      setFile(null); setTitle(''); setDescription(''); setSubject(''); setTopic(''); setUploadPaper('CS'); setUploadCategory('notes')
       await loadResources()
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Upload failed')
@@ -129,14 +146,77 @@ export default function LibraryPage() {
     }
   }
 
-  // Group resources by paper
-  const groups: Record<string, Resource[]> = {}
-  for (const r of resources) {
-    const key = r.paper ?? 'GA'
-    if (!groups[key]) groups[key] = []
-    groups[key].push(r)
+  // Group by category when no category filter is active; otherwise group by paper
+  let groupedContent: React.ReactNode
+
+  if (resources.length > 0) {
+    if (category) {
+      // Category filter active — group by paper (original behaviour)
+      const groups: Record<string, Resource[]> = {}
+      for (const r of resources) {
+        const key = r.paper ?? 'GA'
+        if (!groups[key]) groups[key] = []
+        groups[key].push(r)
+      }
+      const paperOrder = ['CS', 'DA', 'GA']
+      groupedContent = (
+        <div className="space-y-8">
+          {paperOrder.filter(p => groups[p]?.length).map(p => (
+            <div key={p}>
+              <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                {paperLabel(p)} · {groups[p].length} file{groups[p].length !== 1 ? 's' : ''}
+              </h2>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {groups[p].map(item => (
+                  <ResourceCard
+                    key={item.id}
+                    item={item}
+                    downloadingId={downloadingId}
+                    onDownload={downloadResource}
+                    onTest={id => router.push(`/app/library/${id}/test`)}
+                  />
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )
+    } else {
+      // No category filter — group by category
+      const catGroups: Record<string, Resource[]> = {}
+      for (const r of resources) {
+        const key = r.category ?? 'notes'
+        if (!catGroups[key]) catGroups[key] = []
+        catGroups[key].push(r)
+      }
+      const catOrder = ['notes', 'year-wise-paper', 'subject-wise-paper', 'topic-wise-paper']
+      // Collect any keys not in the standard order
+      const extraKeys = Object.keys(catGroups).filter(k => !catOrder.includes(k))
+      const allKeys = [...catOrder, ...extraKeys].filter(k => catGroups[k]?.length)
+      groupedContent = (
+        <div className="space-y-8">
+          {allKeys.map(cat => (
+            <div key={cat}>
+              <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                {categoryLabel(cat)} · {catGroups[cat].length} FILES
+              </h2>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {catGroups[cat].map(item => (
+                  <ResourceCard
+                    key={item.id}
+                    item={item}
+                    downloadingId={downloadingId}
+                    onDownload={downloadResource}
+                    onTest={id => router.push(`/app/library/${id}/test`)}
+                  />
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )
+    }
   }
-  const paperOrder = ['CS', 'DA', 'GA']
 
   return (
     <div className="space-y-6">
@@ -179,7 +259,7 @@ export default function LibraryPage() {
         <Select
           aria-label="Filter by exam"
           value={paper}
-          onChange={e => { const v = e.target.value; setPaper(v); void loadResources({ search, type, paper: v }) }}
+          onChange={e => { const v = e.target.value; setPaper(v); void loadResources({ search, type, paper: v, category }) }}
         >
           <option value="">All exams</option>
           <option value="CS">GATE CS</option>
@@ -187,9 +267,20 @@ export default function LibraryPage() {
           <option value="GA">General Aptitude</option>
         </Select>
         <Select
+          aria-label="Filter by category"
+          value={category}
+          onChange={e => { const v = e.target.value; setCategory(v); void loadResources({ search, type, paper, category: v }) }}
+        >
+          <option value="">All categories</option>
+          <option value="notes">Notes</option>
+          <option value="year-wise-paper">Year-wise Papers</option>
+          <option value="subject-wise-paper">Subject-wise Papers</option>
+          <option value="topic-wise-paper">Topic-wise Papers</option>
+        </Select>
+        <Select
           aria-label="Filter by type"
           value={type}
-          onChange={e => { const v = e.target.value; setType(v); void loadResources({ search, type: v, paper }) }}
+          onChange={e => { const v = e.target.value; setType(v); void loadResources({ search, type: v, paper, category }) }}
         >
           <option value="">All types</option>
           <option value="pdf">PDF</option>
@@ -218,68 +309,7 @@ export default function LibraryPage() {
             <Upload className="mr-1.5 h-4 w-4" />Upload Resource
           </Button>
         </div>
-      ) : (
-        <div className="space-y-8">
-          {paperOrder.filter(p => groups[p]?.length).map(p => (
-            <div key={p}>
-              <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                {paperLabel(p)} · {groups[p].length} file{groups[p].length !== 1 ? 's' : ''}
-              </h2>
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {groups[p].map(item => (
-                  <div
-                    key={item.id}
-                    className="flex flex-col justify-between rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900"
-                  >
-                    {/* Top */}
-                    <div>
-                      <div className="flex items-start gap-2">
-                        {fileIcon(item.file_type)}
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-semibold text-slate-900 dark:text-slate-100">{item.title}</p>
-                          <p className="text-xs text-slate-500">{subjectName(item.subjects)}</p>
-                        </div>
-                      </div>
-                      {item.description && (
-                        <p className="mt-2 line-clamp-2 text-xs text-slate-500">{item.description}</p>
-                      )}
-                    </div>
-
-                    {/* Bottom */}
-                    <div className="mt-3 flex items-center justify-between border-t border-slate-100 pt-3 dark:border-slate-800">
-                      <div className="flex flex-col gap-0.5">
-                        <span className="text-xs text-slate-400">{item.file_type.toUpperCase()} · {fileSize(item.file_size)}</span>
-                        <span className="text-xs text-slate-400">{item.download_count} downloads</span>
-                      </div>
-
-                      {item.file_type === 'json' ? (
-                        <Button
-                          size="sm"
-                          onClick={() => router.push(`/app/library/${item.id}/test`)}
-                        >
-                          <BookOpen className="mr-1.5 h-3.5 w-3.5" />Take Test
-                        </Button>
-                      ) : (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          disabled={downloadingId === item.id}
-                          onClick={() => void downloadResource(item.id)}
-                        >
-                          {downloadingId === item.id
-                            ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-                            : <Download className="mr-1.5 h-3.5 w-3.5" />}
-                          Download
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
+      ) : groupedContent}
 
       {/* Upload Dialog */}
       <Dialog open={uploadOpen} onOpenChange={setUploadOpen}>
@@ -289,6 +319,20 @@ export default function LibraryPage() {
             <DialogDescription>Share notes, PYQ PDFs, or question bank JSON files with the group.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
+            {/* Category — required, first */}
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="upload-category">Category <span className="text-rose-500">*</span></Label>
+              <Select
+                id="upload-category"
+                value={uploadCategory}
+                onChange={e => setUploadCategory(e.target.value as ResourceCategory)}
+              >
+                <option value="notes">Notes</option>
+                <option value="year-wise-paper">Year-wise Paper</option>
+                <option value="subject-wise-paper">Subject-wise Paper</option>
+                <option value="topic-wise-paper">Topic-wise Paper</option>
+              </Select>
+            </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="upload-paper">Exam</Label>
@@ -346,7 +390,15 @@ export default function LibraryPage() {
                 id="upload-file"
                 type="file"
                 accept=".pdf,.docx,.pptx,.txt,.png,.jpg,.jpeg,.json"
-                onChange={e => setFile(e.target.files?.[0] ?? null)}
+                onChange={e => {
+                  const selectedFile = e.target.files?.[0] ?? null
+                  setFile(selectedFile)
+                  const derived = selectedFile?.name
+                    .replace(/\.[^.]+$/, '')
+                    .replace(/[-_]+/g, ' ')
+                    .replace(/^./, c => c.toUpperCase())
+                  if (derived && !title) setTitle(derived)
+                }}
               />
               <p className="text-xs text-slate-400">PDF, DOCX, PPTX, TXT, PNG, JPG, JSON · Max 50 MB</p>
               {file && (
@@ -366,6 +418,62 @@ export default function LibraryPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    </div>
+  )
+}
+
+interface ResourceCardProps {
+  item: Resource
+  downloadingId: string
+  onDownload: (id: string) => void
+  onTest: (id: string) => void
+}
+
+function ResourceCard({ item, downloadingId, onDownload, onTest }: ResourceCardProps) {
+  return (
+    <div className="flex flex-col justify-between rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
+      {/* Top */}
+      <div>
+        <div className="flex items-start gap-2">
+          {fileIcon(item.file_type)}
+          <div className="min-w-0">
+            <p className="truncate text-sm font-semibold text-slate-900 dark:text-slate-100">{item.title}</p>
+            <p className="text-xs text-slate-500">{subjectName(item.subjects)}</p>
+          </div>
+        </div>
+        {item.description && (
+          <p className="mt-2 line-clamp-2 text-xs text-slate-500">{item.description}</p>
+        )}
+      </div>
+
+      {/* Bottom */}
+      <div className="mt-3 flex items-center justify-between border-t border-slate-100 pt-3 dark:border-slate-800">
+        <div className="flex flex-col gap-0.5">
+          <span className="text-xs text-slate-400">{item.file_type.toUpperCase()} · {fileSize(item.file_size)}</span>
+          <span className="text-xs text-slate-400">{item.download_count} downloads</span>
+        </div>
+
+        {item.file_type === 'json' ? (
+          <Button
+            size="sm"
+            onClick={() => onTest(item.id)}
+          >
+            <BookOpen className="mr-1.5 h-3.5 w-3.5" />Take Test
+          </Button>
+        ) : (
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={downloadingId === item.id}
+            onClick={() => onDownload(item.id)}
+          >
+            {downloadingId === item.id
+              ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+              : <Download className="mr-1.5 h-3.5 w-3.5" />}
+            Download
+          </Button>
+        )}
+      </div>
     </div>
   )
 }

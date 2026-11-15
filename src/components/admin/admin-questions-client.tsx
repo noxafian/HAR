@@ -87,6 +87,14 @@ export function AdminQuestionsClient() {
   const [bulkFileName, setBulkFileName] = useState('')
   const [showPyqFormat, setShowPyqFormat] = useState(false)
 
+  // PYQ Quick Upload
+  const [pyqYear, setPyqYear] = useState<number>(new Date().getFullYear())
+  const [pyqPaper, setPyqPaper] = useState<'CS' | 'DA' | 'GA'>('CS')
+  const [pyqFile, setPyqFile] = useState<File | null>(null)
+  const [pyqFileName, setPyqFileName] = useState('')
+  const [pyqLoading, setPyqLoading] = useState(false)
+  const [pyqPreview, setPyqPreview] = useState('')
+
   const load = useCallback(async () => {
     setLoading(true)
     setError('')
@@ -278,6 +286,95 @@ export function AdminQuestionsClient() {
       {error && <div role="alert" className="rounded-md border border-destructive/40 p-3 text-sm text-destructive"><AlertCircle className="mr-2 inline h-4 w-4" />{error}</div>}
       {success && <div role="status" className="rounded-md border border-green-400/40 p-3 text-sm text-green-700">{success}</div>}
 
+      {/* PYQ Quick Upload */}
+      <Card className="p-5">
+        <h2 className="font-semibold text-base mb-3">PYQ Quick Upload</h2>
+        <p className="text-sm text-muted-foreground mb-4">Upload a JSON file of PYQ questions. Year, paper, and category=official-pyq are set automatically for all questions.</p>
+        <div className="flex flex-wrap items-end gap-3">
+          <div>
+            <label className="text-xs font-medium block mb-1">Year</label>
+            <Select value={String(pyqYear)} onChange={e => setPyqYear(Number(e.target.value))} className="w-28">
+              {Array.from({ length: 15 }, (_, i) => 2024 - i).map(y => (
+                <option key={y} value={y}>{y}</option>
+              ))}
+            </Select>
+          </div>
+          <div>
+            <label className="text-xs font-medium block mb-1">Paper</label>
+            <Select value={pyqPaper} onChange={e => setPyqPaper(e.target.value as 'CS' | 'DA' | 'GA')} className="w-24">
+              <option value="CS">CS</option>
+              <option value="DA">DA</option>
+              <option value="GA">GA</option>
+            </Select>
+          </div>
+          <div>
+            <label className="text-xs font-medium block mb-1">JSON File</label>
+            <label className="cursor-pointer inline-flex items-center gap-2 rounded-md border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 px-3 py-2 text-sm font-medium hover:bg-slate-50 dark:hover:bg-slate-800">
+              <Upload className="h-4 w-4" />
+              {pyqFileName || 'Choose .json file'}
+              <input type="file" accept=".json,application/json" className="sr-only" onChange={e => {
+                const f = e.target.files?.[0]
+                if (!f) return
+                setPyqFile(f)
+                setPyqFileName(f.name)
+                e.target.value = ''
+              }} />
+            </label>
+          </div>
+          <Button
+            size="sm"
+            disabled={!pyqFile || pyqLoading}
+            isLoading={pyqLoading}
+            onClick={async () => {
+              if (!pyqFile) return
+              setPyqLoading(true)
+              setPyqPreview('')
+              try {
+                const text = await pyqFile.text()
+                const arr = JSON.parse(text) as unknown[]
+                if (!Array.isArray(arr)) { setPyqPreview('Error: Expected a JSON array'); return }
+                const transformed = arr.map((item: unknown) => {
+                  const q = item as Record<string, unknown>
+                  const optArr = Array.isArray(q.options) ? q.options as string[] : []
+                  if (typeof q.question === 'string' && !q.prompt) {
+                    return {
+                      type: 'MCQ' as const,
+                      category: 'official-pyq' as const,
+                      section: pyqPaper,
+                      year: pyqYear,
+                      subject_id: typeof q.subject === 'string' ? q.subject.toLowerCase().replace(/\s+/g, '-') : undefined,
+                      prompt: q.question as string,
+                      options: optArr.map((val, idx) => ({ key: ['A','B','C','D'][idx] as 'A'|'B'|'C'|'D', value: val })),
+                      marks: 1 as const,
+                      correct_answer: typeof q.correct === 'string' ? q.correct : undefined,
+                      explanation: typeof q.explanation === 'string' ? q.explanation : undefined,
+                    }
+                  }
+                  return { ...q, year: pyqYear, section: pyqPaper, category: 'official-pyq' as const }
+                })
+                const res = await apiRequest<{ inserted: number; errors: { index: number; message: string }[] }>(
+                  '/api/v1/admin/questions/bulk',
+                  { method: 'POST', body: jsonBody({ questions: transformed }) }
+                )
+                setPyqPreview(`✓ Uploaded: ${res.inserted} inserted, ${res.errors.length} failed`)
+                setSuccess(`PYQ ${pyqYear} ${pyqPaper}: ${res.inserted} questions uploaded`)
+                setPyqFile(null); setPyqFileName('')
+                await load()
+              } catch (e) {
+                setPyqPreview(`Error: ${e instanceof Error ? e.message : 'Upload failed'}`)
+              } finally {
+                setPyqLoading(false)
+              }
+            }}
+          >
+            Upload PYQs
+          </Button>
+        </div>
+        {pyqPreview && (
+          <p className={`mt-3 text-sm ${pyqPreview.startsWith('✓') ? 'text-green-700 dark:text-green-400' : 'text-destructive'}`}>{pyqPreview}</p>
+        )}
+      </Card>
+
       {/* Stats */}
       <div className="grid gap-4 sm:grid-cols-3 xl:grid-cols-6">
         {[
@@ -294,6 +391,26 @@ export function AdminQuestionsClient() {
           </Card>
         ))}
       </div>
+
+      {/* Year Summary */}
+      {questions.length > 0 && (() => {
+        const byYear = questions.reduce<Record<string, number>>((acc, q) => {
+          const key = q.year ? String(q.year) : 'No year'
+          acc[key] = (acc[key] ?? 0) + 1
+          return acc
+        }, {})
+        const yearEntries = Object.entries(byYear).sort((a, b) => b[0].localeCompare(a[0]))
+        return (
+          <Card className="p-4">
+            <h2 className="text-sm font-semibold mb-3">Questions by Year</h2>
+            <div className="flex flex-wrap gap-2">
+              {yearEntries.map(([year, cnt]) => (
+                <Badge key={year} variant="outline">{year}: {cnt}</Badge>
+              ))}
+            </div>
+          </Card>
+        )
+      })()}
 
       {/* Bulk Upload Panel */}
       {showBulk && (

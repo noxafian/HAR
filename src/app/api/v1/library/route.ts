@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
 
   const parsed = ListResourcesQuerySchema.safeParse(Object.fromEntries(req.nextUrl.searchParams))
   if (!parsed.success) return NextResponse.json(createErrorResponse(ErrorCodes.VALIDATION_FAILED.id, 'Invalid query parameters'), { status: 400 })
-  const { search, subject, paper, type, limit, offset } = parsed.data
+  const { search, subject, paper, type, category, limit, offset } = parsed.data
   const db = await createSupabaseClient()
   let subjectId: string | null = null
   if (subject) {
@@ -26,7 +26,7 @@ export async function GET(req: NextRequest) {
   }
 
   let query = db.from('resources')
-    .select('id,title,description,paper,subject_id,topic_id,file_type,file_size,status,uploaded_by,verified_by,verified_at,version,download_count,created_at,updated_at,subjects(name),topics(name)', { count: 'exact' })
+    .select('id,title,description,paper,subject_id,topic_id,file_type,file_size,status,uploaded_by,verified_by,verified_at,version,download_count,created_at,updated_at,category,subjects(name),topics(name)', { count: 'exact' })
     .eq('is_deleted', false)
     .order('created_at', { ascending: false })
     .range(offset, offset + limit - 1)
@@ -34,6 +34,7 @@ export async function GET(req: NextRequest) {
   if (subjectId) query = query.eq('subject_id', subjectId)
   if (paper) query = query.eq('paper', paper)
   if (type) query = query.eq('file_type', type)
+  if (category) query = query.eq('category', category)
   const { data, error, count } = await query
   if (error) {
     console.error('[library.list]', error.message)

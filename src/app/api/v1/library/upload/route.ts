@@ -36,6 +36,7 @@ export async function POST(req: NextRequest) {
   const subject = formData.get('subject')?.toString() || undefined
   const topic = formData.get('topic')?.toString() || undefined
   const paper = (formData.get('paper')?.toString() || 'CS') as 'CS' | 'DA' | 'GA'
+  const category = formData.get('category')?.toString() || 'notes'
 
   if (!title || title.length < 1 || title.length > 255) {
     return NextResponse.json(createErrorResponse(ErrorCodes.VALIDATION_FAILED.id, 'Title is required and must be 1-255 characters'), { status: 400 })
@@ -141,6 +142,7 @@ export async function POST(req: NextRequest) {
         topic_id: topicId,
         uploaded_by: user.id,
         status: 'verified',
+        category,
       })
       .select('id')
       .single()

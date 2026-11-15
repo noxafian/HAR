@@ -14,6 +14,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
 import { apiRequest, jsonBody } from '@/lib/client/api'
 import { cn } from '@/lib/cn'
+import { CS_SUBJECTS, DA_SUBJECTS, GA_SUBJECTS } from '@/lib/constants'
 
 interface PracticeOption { id: string; text: string }
 interface PracticeQuestion {
@@ -42,6 +43,11 @@ function formatClock(total: number) {
   return `${String(Math.floor(s / 3600)).padStart(2, '0')}:${String(Math.floor((s % 3600) / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`
 }
 
+function resolveSubjectName(subjectId: string): string {
+  const all = [...CS_SUBJECTS, ...DA_SUBJECTS, ...GA_SUBJECTS]
+  return all.find(s => s.id === subjectId)?.name ?? subjectId
+}
+
 export default function PracticePage({
   params,
 }: {
@@ -54,6 +60,7 @@ export default function PracticePage({
 
   const paper = searchParams.get('paper') ?? 'CS'
   const topicFilter = searchParams.get('topic') ?? ''
+  const yearFilter = searchParams.get('year') ?? ''
   const timedMinutes = Number(searchParams.get('timed') ?? '0') || 0
 
   // Available topics extracted from loaded questions for filter dropdown
@@ -84,12 +91,14 @@ export default function PracticePage({
   // unique topics from loaded batch
   const topics = [...new Set(questions.map(q => q.topic_name).filter(Boolean))]
 
-  const loadQuestions = useCallback(async (subj: string, ppr: string, topic: string) => {
+  const loadQuestions = useCallback(async (subj: string, ppr: string, topic: string, year: string) => {
     setLoadingBatch(true); setBatchError('')
     try {
-      const params = new URLSearchParams({ limit: String(BATCH), offset: '0', subject: subj, paper: ppr })
-      if (topic) params.set('topic', topic)
-      const result = await apiRequest<PageData>(`/api/v1/questions?${params.toString()}`)
+      const subjectName = resolveSubjectName(subj)
+      const urlParams = new URLSearchParams({ limit: String(BATCH), offset: '0', subject: subjectName, paper: ppr })
+      if (topic) urlParams.set('topic', topic)
+      if (year) urlParams.set('year', year)
+      const result = await apiRequest<PageData>(`/api/v1/questions?${urlParams.toString()}`)
       setQuestions(result.items)
       setTotal(result.total)
     } catch (e) {
@@ -117,8 +126,8 @@ export default function PracticePage({
       setRemaining(0)
       endedRef.current = false
     }
-    void loadQuestions(subjectParam, paper, topicQuery)
-  }, [subjectParam, paper, topicQuery, timedMinutes, loadQuestions])
+    void loadQuestions(subjectParam, paper, topicQuery, yearFilter)
+  }, [subjectParam, paper, topicQuery, yearFilter, timedMinutes, loadQuestions])
 
   // Tick the countdown once per second while a timed session is active.
   useEffect(() => {
@@ -237,7 +246,7 @@ export default function PracticePage({
           <AlertCircle className="h-4 w-4 shrink-0" />
           {batchError}
         </div>
-        <Button onClick={() => void loadQuestions(subjectParam, paper, topicQuery)}>Retry</Button>
+        <Button onClick={() => void loadQuestions(subjectParam, paper, topicQuery, yearFilter)}>Retry</Button>
       </div>
     )
   }
@@ -249,7 +258,7 @@ export default function PracticePage({
         <div className="text-center">
           <Trophy className="mx-auto mb-3 h-12 w-12 text-indigo-500" />
           <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Session Complete!</h1>
-          <p className="mt-1 text-sm text-slate-500">{subjectParam} practice session</p>
+          <p className="mt-1 text-sm text-slate-500">{resolveSubjectName(subjectParam)} practice session</p>
         </div>
         <Card>
           <CardContent className="grid grid-cols-3 gap-4 p-6 text-center">
@@ -269,11 +278,11 @@ export default function PracticePage({
         </Card>
         <div className="flex gap-3 justify-center">
           <Button onClick={restartSession}>Practice Again</Button>
-          <Button variant="outline" onClick={() => router.push('/app/pyq')}>Go to PYQ Bank</Button>
+          <Button variant="outline" onClick={() => router.push('/app/practice')}>Back to Practice</Button>
         </div>
         <div className="text-center">
-          <Link href="/app/practice/algorithms" className="text-sm text-indigo-600 hover:underline dark:text-indigo-400">
-            ← Back to Subjects
+          <Link href="/app/practice" className="text-sm text-indigo-600 hover:underline dark:text-indigo-400">
+            ← Back to Practice
           </Link>
         </div>
       </div>
@@ -283,10 +292,10 @@ export default function PracticePage({
   if (!currentQuestion) {
     return (
       <div className="mx-auto max-w-xl space-y-4 py-10 text-center">
-        <p className="text-sm text-slate-500">No questions found for <strong>{subjectParam}</strong> with the current filters.</p>
+        <p className="text-sm text-slate-500">No questions found for <strong>{resolveSubjectName(subjectParam)}</strong> with the current filters.</p>
         <Button variant="outline" onClick={() => setTopicQuery('')}>Clear topic filter</Button>
         <div>
-          <Link href="/app/practice/algorithms" className="text-sm text-indigo-600 hover:underline">← Back to Subjects</Link>
+          <Link href="/app/practice" className="text-sm text-indigo-600 hover:underline">← Back to Practice</Link>
         </div>
       </div>
     )
@@ -312,12 +321,12 @@ export default function PracticePage({
       {/* Header */}
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
-          <Link href="/app/practice/algorithms" className="flex items-center gap-1 text-sm text-slate-500 hover:text-slate-900 dark:hover:text-slate-100">
+          <Link href="/app/practice" className="flex items-center gap-1 text-sm text-slate-500 hover:text-slate-900 dark:hover:text-slate-100">
             <ArrowLeft className="h-4 w-4" />
-            Back to Subjects
+            Back to Practice
           </Link>
           <span className="text-slate-300 dark:text-slate-600">/</span>
-          <h1 className="text-lg font-semibold text-slate-900 dark:text-slate-100">{subjectParam}</h1>
+          <h1 className="text-lg font-semibold text-slate-900 dark:text-slate-100">{resolveSubjectName(subjectParam)}</h1>
         </div>
         <Button variant="outline" size="sm" onClick={endSession}>
           End Session
@@ -338,6 +347,7 @@ export default function PracticePage({
           ))}
         </Select>
         <Badge variant="outline">Paper: {paper}</Badge>
+        {yearFilter && <Badge variant="outline">Year: {yearFilter}</Badge>}
       </div>
 
       {/* Progress */}
