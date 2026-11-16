@@ -52,3 +52,5 @@ scripts/*.sql
 # Kiro IDE and agent artifacts
 .kiro
 .agents
+
+.vercel

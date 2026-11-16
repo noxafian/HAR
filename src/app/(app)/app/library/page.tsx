@@ -24,12 +24,6 @@ interface Resource {
   download_count: number
   created_at: string
   category: string | null
-  subjects?: { name: string } | { name: string }[] | null
-  topics?: { name: string } | { name: string }[] | null
-}
-
-function subjectName(value: Resource['subjects']): string {
-  return Array.isArray(value) ? value[0]?.name ?? 'General' : value?.name ?? 'General'
 }
 
 function fileIcon(type: string) {
@@ -438,7 +432,7 @@ function ResourceCard({ item, downloadingId, onDownload, onTest }: ResourceCardP
           {fileIcon(item.file_type)}
           <div className="min-w-0">
             <p className="truncate text-sm font-semibold text-slate-900 dark:text-slate-100">{item.title}</p>
-            <p className="text-xs text-slate-500">{subjectName(item.subjects)}</p>
+            <p className="text-xs text-slate-500">{categoryLabel(item.category)}</p>
           </div>
         </div>
         {item.description && (

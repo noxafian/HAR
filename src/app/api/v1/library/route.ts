@@ -26,7 +26,7 @@ export async function GET(req: NextRequest) {
   }
 
   let query = db.from('resources')
-    .select('id,title,description,paper,subject_id,topic_id,file_type,file_size,status,uploaded_by,verified_by,verified_at,version,download_count,created_at,updated_at,category,subjects(name),topics(name)', { count: 'exact' })
+    .select('id,title,description,paper,subject_id,topic_id,file_type,file_size,status,uploaded_by,verified_by,verified_at,version,download_count,created_at,updated_at,category', { count: 'exact' })
     .eq('is_deleted', false)
     .order('created_at', { ascending: false })
     .range(offset, offset + limit - 1)
