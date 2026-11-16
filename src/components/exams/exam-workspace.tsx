@@ -6,12 +6,12 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { EmptyState } from '@/components/ui/empty-state'
 import { Badge } from '@/components/ui/badge'
 import { VideosTab } from '@/components/exams/videos-tab'
-import { BookOpen, Library, ClipboardList, RotateCcw, BarChart2, LayoutList, Loader2, ExternalLink, CheckCircle2, MonitorPlay } from 'lucide-react'
+import { BookOpen, Library, ClipboardList, RotateCcw, BarChart2, LayoutList, Loader2, ExternalLink, MonitorPlay } from 'lucide-react'
 import type { ExamPaper } from '@/types/exam'
 import { apiRequest, jsonBody } from '@/lib/client/api'
+import { SubjectDrawer } from './subject-drawer'
+import type { SyllabusSection } from './subject-drawer'
 
-interface SyllabusTopic { id: string; name: string; display_order: number }
-interface SyllabusSection { id: string; name: string; display_order: number; is_general_aptitude: boolean; topics: SyllabusTopic[] }
 interface SyllabusResponse { paper: ExamPaper; label: string; year: number | null; sourceRef: string | null; sections: SyllabusSection[]; topicHierarchyAvailable: boolean }
 interface ExamWorkspaceProps { paper: ExamPaper; title: string }
 
@@ -29,6 +29,7 @@ export function ExamWorkspace({ paper, title }: ExamWorkspaceProps) {
   const [topicProgress, setTopicProgress] = useState<Map<string, { completed: boolean }>>(new Map())
   const [completionCounts, setCompletionCounts] = useState<Map<string, { completed: number; total: number }>>(new Map())
   const [togglingTopic, setTogglingTopic] = useState('')
+  const [selectedSection, setSelectedSection] = useState<SyllabusSection | null>(null)
 
   useEffect(() => {
     let active = true
@@ -112,7 +113,7 @@ export function ExamWorkspace({ paper, title }: ExamWorkspaceProps) {
           <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-300">{syllabus.year ? `Syllabus version ${syllabus.year}` : 'No current version'} is configured. {syllabus.topicHierarchyAvailable ? 'Topic records are available below.' : 'The subject catalogue is present, but verified official topic-level content has not yet been imported. No syllabus topics or weightage are being invented.'}</div>
           <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">{syllabus.sections.map((section, index) => {
             const counts = completionCounts.get(section.id)
-            return <article key={section.id} className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900 transition-all duration-200 hover:-translate-y-1 hover:shadow-lg cursor-pointer active:-translate-y-0.5"><div className="flex items-start gap-3"><div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-indigo-100 text-xs font-bold text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">{index + 1}</div><div className="min-w-0"><p className="text-sm font-medium text-slate-900 dark:text-slate-100">{section.name}</p><p className="mt-1 text-xs text-slate-400">{section.topics.length} topic records</p>{counts && <><div className="mt-1 text-xs text-slate-500">{counts.completed} / {counts.total} completed</div><div className="mt-1 h-1 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700"><div className="h-full bg-emerald-500 transition-all" style={{ width: counts.total > 0 ? (counts.completed / counts.total * 100) + '%' : '0%' }} /></div></>}</div></div>{section.topics.length > 0 && <ul className="mt-3 space-y-1 border-t border-slate-100 pt-3 dark:border-slate-800">{section.topics.map(topic => <li key={topic.id} className="flex items-center justify-between gap-2 py-0.5"><span className="text-xs text-slate-600 dark:text-slate-400">{topic.name}</span><button onClick={() => void toggleTopic(section.id, topic.id)} disabled={togglingTopic === section.id + ':' + topic.id} aria-label={`Toggle ${topic.name}`}><CheckCircle2 className={topicProgress.get(section.id + ':' + topic.id)?.completed ? 'h-4 w-4 text-emerald-600' : 'h-4 w-4 text-slate-300 hover:text-slate-400'} /></button></li>)}</ul>}{section.is_general_aptitude && paper !== 'GA' && <Link href="/app/exams/general-aptitude" className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-indigo-600 hover:underline dark:text-indigo-400">Open shared GA workspace <ExternalLink className="h-3 w-3"/></Link>}</article>
+            return <article key={section.id} onClick={() => setSelectedSection(section)} className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900 transition-all duration-200 hover:-translate-y-1 hover:shadow-lg cursor-pointer active:-translate-y-0.5"><div className="flex items-start gap-3"><div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-indigo-100 text-xs font-bold text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">{index + 1}</div><div className="min-w-0"><p className="text-sm font-medium text-slate-900 dark:text-slate-100">{section.name}</p><p className="mt-1 text-xs text-slate-400">{section.topics.length} topic records</p>{counts && <><div className="mt-1 text-xs text-slate-500">{counts.completed} / {counts.total} completed</div><div className="mt-1 h-1 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700"><div className="h-full bg-emerald-500 transition-all" style={{ width: counts.total > 0 ? (counts.completed / counts.total * 100) + '%' : '0%' }} /></div></>}</div></div>{section.is_general_aptitude && paper !== 'GA' && <Link href="/app/exams/general-aptitude" className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-indigo-600 hover:underline dark:text-indigo-400">Open shared GA workspace <ExternalLink className="h-3 w-3"/></Link>}</article>
           })}</div>
         </div>}
       </TabsContent>
@@ -123,5 +124,14 @@ export function ExamWorkspace({ paper, title }: ExamWorkspaceProps) {
       <TabsContent value="revision"><p className="mb-3 text-sm text-slate-500">Your own scheduled revision items and review history are stored in the database.</p><Link href="/app/revision" className="text-sm font-medium text-indigo-600 hover:underline dark:text-indigo-400">Open Revision Centre →</Link></TabsContent>
       <TabsContent value="analytics"><p className="mb-3 text-sm text-slate-500">See performance computed from your scored attempts and saved study activity.</p><Link href="/app/analytics" className="text-sm font-medium text-indigo-600 hover:underline dark:text-indigo-400">Open analytics →</Link></TabsContent>
     </Tabs>
+    <SubjectDrawer
+      section={selectedSection}
+      paper={paper}
+      topicProgress={topicProgress}
+      completionCounts={completionCounts}
+      toggleTopic={toggleTopic}
+      togglingTopic={togglingTopic}
+      onClose={() => setSelectedSection(null)}
+    />
   </div>
 }
